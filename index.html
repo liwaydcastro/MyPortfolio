@@ -304,7 +304,7 @@ var SERVICES=[
 ];
 // 5) GOOGLE SHEET CONNECTION: paste your Apps Script web app address between the quotation marks.
 //    Leave "" to switch live counting and the sheet off.
-var SCRIPT_URL="";
+var SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhLqPRBKsa9RagjfjDr7HFypAV8E0IEjCLN3oBxyNp2sQ8emkEF0BsJ3TqtaagGVKt/exec";
 /* ============================================== */
 
 function $(id){return document.getElementById(id)}
@@ -403,7 +403,7 @@ cf.addEventListener("submit",function(e){
  delete o._honey;
  if(!o.name.trim()||!/^\S+@\S+\.\S+$/.test(o.email)||o.whatsapp.replace(/\D/g,"").length<7){cm.textContent="Please enter your name, a valid email address and your WhatsApp number.";return}
  var mail="mailto:liwaydcastro@gmail.com?subject="+encodeURIComponent("I want to be your client")+"&body="+encodeURIComponent("Name: "+o.name+"\nEmail: "+o.email+"\nWhatsApp: "+o.whatsapp+"\nInterested in: "+(o.interest||"-"));
- if(!SCRIPT_URL){window.location.href=mail;cm.textContent="Your email app should open with your details ready to send.";return}
+ if(!SCRIPT_URL){cm.innerHTML='Sorry, the form is not available right now. Please email <a href="mailto:liwaydcastro@gmail.com">liwaydcastro@gmail.com</a>.';return}
  o.type="lead";cb.disabled=true;cm.textContent="Sending\u2026";
  post(o).then(function(j){
   if(j&&j.ok){cf.reset();cm.textContent="Thank you! Your details were sent. I will contact you soon.";loadStats()}
