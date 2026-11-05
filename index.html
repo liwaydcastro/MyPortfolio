@@ -282,10 +282,45 @@ var STATS={
  clicked:null,     // potential clients who clicked projects or services (blank = sum of project clicks)
  interested:null   // people who said they want to be your client
 };
+// 4) SERVICES: the choices in the "Service you are interested in" drop-down of the client form.
+//    Add, remove or rename lines. Keep each one in quotation marks followed by a comma.
+var SERVICES=[
+"Canva Design",
+"Digital products",
+"Website design",
+"Social media apps",
+"Online exam platform",
+"Event livestreaming",
+"Event website and registration",
+"Curriculum and course design",
+"Presentation design",
+"Power BI dashboards and Excel reports",
+"Workflow automation (Zapier, Make.com)",
+"AI prompt engineering training",
+"Engineering review and CPD courses",
+"Quality assurance and accreditation support",
+"Virtual assistant and administrative support",
+"Other or general inquiry"
+];
+// 5) GOOGLE SHEET CONNECTION: paste your Apps Script web app address between the quotation marks.
+//    Leave "" to switch live counting and the sheet off.
+var SCRIPT_URL="";
 /* ============================================== */
 
 function $(id){return document.getElementById(id)}
 function n(v){return v===null||v===undefined?"\u2014":v.toLocaleString("en-US")}
+function post(o){
+ if(!SCRIPT_URL)return Promise.resolve(null);
+ return fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(o),keepalive:true}).then(function(r){return r.json()}).catch(function(){return null});
+}
+function seen(k){try{return localStorage.getItem(k)==="1"}catch(e){return false}}
+function mark(k){try{localStorage.setItem(k,"1")}catch(e){}}
+function trackClick(title){
+ if(!SCRIPT_URL)return;
+ var k="dcc_c_"+title;if(seen(k))return;
+ var first=!seen("dcc_any");mark(k);mark("dcc_any");
+ post({type:"click",project:title,first:first}).then(loadStats);
+}
 var g=$("grid");
 PROJECTS.forEach(function(p){
  var c=document.createElement("article");c.className="card";
@@ -294,6 +329,7 @@ PROJECTS.forEach(function(p){
  var a=c.children[3];
  if(p.url){a.href=p.url;a.target="_blank";a.rel="noopener";a.textContent="Visit website \u2192";}
  else{a.className="visit off";a.textContent="Link coming soon";}
+ c.addEventListener("click",function(){trackClick(p.title)});
  g.appendChild(c);
 });
 var lb=$("lb"),lbi=lb.querySelector("img"),lbm=$("lbm");
@@ -320,13 +356,6 @@ CERTS.forEach(function(x,i){
 });
 $("certs-count").textContent=CERTS.length+" certificates and trainings. Select View certificate to see the photo.";
 $("cfilter").addEventListener("input",function(){var q=this.value.toLowerCase().trim();Array.prototype.forEach.call(cl.children,function(li){li.style.display=li.dataset.s.indexOf(q)>-1?"":"none"})});
-var sum=PROJECTS.reduce(function(a,p){return a+(p.clicks||0)},0);
-var clicked=STATS.clicked!==null?STATS.clicked:(sum>0?sum:null);
-$("dash-sub").textContent="Updated "+STATS.updated+".";
-[["Clients so far",STATS.clients],["Potential clients (clicked)",clicked],["Site visitors",STATS.visitors],["Want to be my client",STATS.interested]].forEach(function(k){
- var d=document.createElement("div");d.className="kpi";d.innerHTML='<b></b><span></span>';
- d.children[0].textContent=n(k[1]);d.children[1].textContent=k[0];$("kpis").appendChild(d);
-});
 function rows(el,list,max){
  list.forEach(function(r){
   var w=max>0&&r[1]?Math.max(2,Math.round(r[1]/max*100)):0;
@@ -336,24 +365,51 @@ function rows(el,list,max){
   el.appendChild(d);
  });
 }
-var fv=STATS.visitors;
-function pct(v){return fv&&v!==null?Math.round(v/fv*100)+"%":n(v)}
-rows($("funnel"),[["Visited the site",fv],["Clicked a project or service",clicked],["Want to be my client",STATS.interested],["Became a client",STATS.clients]].map(function(r,i){return i?[r[0],r[1],pct(r[1])]:[r[0],r[1]]}),Math.max(fv||0,clicked||0,STATS.interested||0,STATS.clients||0));
-rows($("clicks"),PROJECTS.map(function(p){return [p.title,p.clicks]}),Math.max.apply(null,PROJECTS.map(function(p){return p.clicks||0})));
+var LIVE=false;
+function renderDash(){
+ ["kpis","funnel","clicks"].forEach(function(id){$(id).innerHTML=""});
+ var sum=PROJECTS.reduce(function(a,p){return a+(p.clicks||0)},0);
+ var clicked=STATS.clicked!==null?STATS.clicked:(sum>0?sum:null);
+ $("dash-sub").textContent=LIVE?"Live numbers from my Google Sheet, refreshed every minute.":"Updated "+STATS.updated+".";
+ [["Clients so far",STATS.clients],["Potential clients (clicked)",clicked],["Site visitors",STATS.visitors],["Want to be my client",STATS.interested]].forEach(function(k){
+  var d=document.createElement("div");d.className="kpi";d.innerHTML='<b></b><span></span>';
+  d.children[0].textContent=n(k[1]);d.children[1].textContent=k[0];$("kpis").appendChild(d);
+ });
+ var fv=STATS.visitors;
+ function pct(v){return fv&&v!==null?Math.round(v/fv*100)+"%":n(v)}
+ rows($("funnel"),[["Visited the site",fv],["Clicked a project or service",clicked],["Want to be my client",STATS.interested],["Became a client",STATS.clients]].map(function(r,i){return i?[r[0],r[1],pct(r[1])]:[r[0],r[1]]}),Math.max(fv||0,clicked||0,STATS.interested||0,STATS.clients||0));
+ rows($("clicks"),PROJECTS.map(function(p){return [p.title,p.clicks]}),Math.max.apply(null,PROJECTS.map(function(p){return p.clicks||0})));
+}
+function loadStats(){
+ if(!SCRIPT_URL)return Promise.resolve();
+ return fetch(SCRIPT_URL+(SCRIPT_URL.indexOf("?")>-1?"&":"?")+"t="+Date.now()).then(function(r){return r.json()}).then(function(j){
+  var s=j&&j.stats;if(!s)return;
+  ["clients","visitors","clicked","interested"].forEach(function(k){if(s[k]!==undefined)STATS[k]=Number(s[k])||0});
+  PROJECTS.forEach(function(p){var v=s["click:"+p.title];p.clicks=v===undefined?0:(Number(v)||0)});
+  LIVE=true;renderDash();
+ }).catch(function(){});
+}
+renderDash();
+if(SCRIPT_URL){
+ if(!seen("dcc_v")){mark("dcc_v");post({type:"visit"}).then(loadStats)}else{loadStats()}
+ setInterval(loadStats,60000);
+}
 var cf=$("cf"),cb=$("cf-btn"),cm=$("cf-msg"),ci=$("cf-interest");
-PROJECTS.map(function(p){return p.title}).concat(["Other or general inquiry"]).forEach(function(t){var o=document.createElement("option");o.value=t;o.textContent=t;ci.appendChild(o)});
+SERVICES.forEach(function(t){var o=document.createElement("option");o.value=t;o.textContent=t;ci.appendChild(o)});
 cf.addEventListener("submit",function(e){
  e.preventDefault();
  var o={};new FormData(cf).forEach(function(v,k){o[k]=v});
  if(o._honey)return;
+ delete o._honey;
  if(!o.name.trim()||!/^\S+@\S+\.\S+$/.test(o.email)||o.whatsapp.replace(/\D/g,"").length<7){cm.textContent="Please enter your name, a valid email address and your WhatsApp number.";return}
- o._subject="New client inquiry from your portfolio website";o._template="table";o._captcha="false";
- cb.disabled=true;cm.textContent="Sending\u2026";
- fetch("https://formsubmit.co/ajax/liwaydcastro@gmail.com",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(o)})
- .then(function(r){if(!r.ok)throw new Error("fail");return r.json()})
- .then(function(){cf.reset();cm.textContent="Thank you! Your details were sent. I will contact you soon."})
- .catch(function(){cm.innerHTML='Sorry, the form could not be sent. Please email <a href="mailto:liwaydcastro@gmail.com">liwaydcastro@gmail.com</a> instead.'})
- .then(function(){cb.disabled=false});
+ var mail="mailto:liwaydcastro@gmail.com?subject="+encodeURIComponent("I want to be your client")+"&body="+encodeURIComponent("Name: "+o.name+"\nEmail: "+o.email+"\nWhatsApp: "+o.whatsapp+"\nInterested in: "+(o.interest||"-"));
+ if(!SCRIPT_URL){window.location.href=mail;cm.textContent="Your email app should open with your details ready to send.";return}
+ o.type="lead";cb.disabled=true;cm.textContent="Sending\u2026";
+ post(o).then(function(j){
+  if(j&&j.ok){cf.reset();cm.textContent="Thank you! Your details were sent. I will contact you soon.";loadStats()}
+  else{cm.innerHTML='Sorry, the form could not be sent. Please <a href="'+mail+'">email me directly</a>.'}
+  cb.disabled=false;
+ });
 });
 $("yr").textContent=new Date().getFullYear();
 </script>
