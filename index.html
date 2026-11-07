@@ -304,14 +304,17 @@ var SERVICES=[
 ];
 // 5) GOOGLE SHEET CONNECTION: paste your Apps Script web app address between the quotation marks.
 //    Leave "" to switch live counting and the sheet off.
-var SCRIPT_URL="https://script.google.com/macros/s/AKfycbz9rGAvljR88jC4c8xC6lroF2J_VDA597y_yl9DAk0IsVGm-X_EeC0OhkwkCwG65Qv2GA/exec";
+var SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhLqPRBKsa9RagjfjDr7HFypAV8E0IEjCLN3oBxyNp2sQ8emkEF0BsJ3TqtaagGVKt/exec";
 /* ============================================== */
 
 function $(id){return document.getElementById(id)}
 function n(v){return v===null||v===undefined?"\u2014":v.toLocaleString("en-US")}
 function post(o){
  if(!SCRIPT_URL)return Promise.resolve(null);
- return fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(o),keepalive:true}).then(function(r){return r.json()}).catch(function(){return null});
+ return fetch(SCRIPT_URL,{method:"POST",body:JSON.stringify(o)}).then(function(r){return r.text()}).then(function(t){
+  try{var j=JSON.parse(t);if(!j.ok)console.warn("Script replied:",j);return j}
+  catch(e){console.warn("Script reply was not JSON. Check the deployment access setting:",t.slice(0,200));return null}
+ }).catch(function(err){console.warn("Could not reach the script:",err);return null});
 }
 function seen(k){try{return localStorage.getItem(k)==="1"}catch(e){return false}}
 function mark(k){try{localStorage.setItem(k,"1")}catch(e){}}
